@@ -67,6 +67,12 @@ class Preferences:
         """Returns the most preferred item from a list.
         """
         # To be completed
+        best_item = item_list[0]
+        for item in item_list[1:]:
+            if is_preferred_item(item, best_item):
+                #then current item is better than best item, update it
+                best_item = item
+                        
         return best_item
 
     def is_item_among_top_10_percent(self, item):
