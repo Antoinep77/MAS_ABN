@@ -75,14 +75,18 @@ class Preferences:
                         
         return best_item
 
-    def is_item_among_top_10_percent(self, item):
+    def is_item_among_top_10_percent(self,item,items):
         """
         Return whether a given item is among the top 10 percent of the preferred items.
 
         :return: a boolean, True means that the item is among the favourite ones
         """
-        # To be completed
-        return is_top_item
+        #start at 0 as we will add 1 for the item itself
+        item_position = 0
+        for item2 in items:
+            if self.is_preferred_item(item2,item):
+                item_position += 1
+        return prefered_items_count <= len(items)//10
 
 
 if __name__ == '__main__':
