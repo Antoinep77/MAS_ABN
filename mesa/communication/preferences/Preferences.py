@@ -86,7 +86,7 @@ class Preferences:
         for item2 in items:
             if self.is_preferred_item(item2,item):
                 item_position += 1
-        return prefered_items_count <= len(items)//10
+        return item_position <= len(items)//10
 
 
 if __name__ == '__main__':
@@ -131,3 +131,5 @@ if __name__ == '__main__':
     print('Electric Engine (for agent 1) = {}'.format(electric_engine.get_score(agent_pref)))
     print('Diesel Engine (for agent 1) = {}'.format(diesel_engine.get_score(agent_pref)))
     print('Most preferred item is : {}'.format(agent_pref.most_preferred([diesel_engine, electric_engine]).get_name()))
+    print('Is Electric Engine in top 10%: {}'.format(agent_pref.is_item_among_top_10_percent(electric_engine,[diesel_engine, electric_engine])))
+    print('Is Diesel Engine in top 10%: {}'.format(agent_pref.is_item_among_top_10_percent(diesel_engine,[diesel_engine, electric_engine])))
