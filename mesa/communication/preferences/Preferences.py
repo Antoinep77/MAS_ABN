@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
-from communication.preferences.CriterionName import CriterionName
-from communication.preferences.CriterionValue import CriterionValue
-from communication.preferences.Item import Item
-from communication.preferences.Value import Value
+from CriterionName import CriterionName
+from CriterionValue import CriterionValue
+from Item import Item
+from Value import Value
 
 
 class Preferences:
@@ -69,7 +69,7 @@ class Preferences:
         # To be completed
         best_item = item_list[0]
         for item in item_list[1:]:
-            if is_preferred_item(item, best_item):
+            if self.is_preferred_item(item, best_item):
                 #then current item is better than best item, update it
                 best_item = item
                         
