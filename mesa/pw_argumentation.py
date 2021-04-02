@@ -45,9 +45,14 @@ class ArgumentAgent(CommunicatingAgent):
             self.send_message(Message(self.get_name(),m.get_exp(),MessagePerformative.COMMIT,m.get_content()))
             self.committed_items.add(m.get_content())
 
-    def handle_ask_why_message(self,m):
-        pass
 
+    def handle_ask_why_message(self,m):
+        argument = self.preference.support_proposal(m.get_content())
+        content = (m.get_content(),argument)
+        self.send_message(Message(self.get_name(),m.get_exp(),MessagePerformative.ARGUE,content))
+
+    def handle_argue_message(self,m):
+        pass
 
     def step(self):
         super().step()
@@ -57,6 +62,7 @@ class ArgumentAgent(CommunicatingAgent):
                 MessagePerformative.ASK_WHY:self.handle_ask_why_message,
                 MessagePerformative.ACCEPT: self.handle_accept_message,
                 MessagePerformative.COMMIT: self.handle_commit_message,
+                MessagePerformative.ARGUE: self.handle_argue_message,
             }
         for m in messages:
             handlers[m.get_performative()](m)

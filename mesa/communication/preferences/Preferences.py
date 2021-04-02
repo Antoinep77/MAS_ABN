@@ -4,6 +4,7 @@ from communication.preferences.CriterionName import CriterionName
 from communication.preferences.CriterionValue import CriterionValue
 from communication.preferences.Item import Item
 from communication.preferences.Value import Value
+from communication.arguments.Argument import Argument
 
 
 class Preferences:
@@ -88,6 +89,39 @@ class Preferences:
                 item_position += 1
         return item_position <= len(items)//10
 
+    def list_supporting_proposal(self, item):
+        """Generate a list of arguments which can be used to support an item
+        :param item: Item - name of the item
+        :return: list of all arguments PRO an item (sorted by order of importance based on agent's preferences)
+        """
+        couple_values =  [ (criterion,self.get_value(item,criterion)) for criterion in self.get_criterion_name_list()]
+        argument = Argument(True,item)
+        for criterion,value in couple_values:
+            if value == Value.VERY_GOOD or value == Value.GOOD:
+                argument.add_premiss_couple_values(criterion,value)
+        return argument
+
+    def list_attacking_proposal(self, item):
+        """Generate a list of arguments which can be used to attack an item
+        :param item: Item - name of the item
+        :return: list of all arguments CON an item (sorted by order of importance based on preferences)
+        """
+        couple_values =  [ (criterion,self.get_value(item,criterion)) for criterion in self.get_criterion_name_list()]
+        argument = Argument(True,item)
+        for criterion,value in couple_values:
+            if value == Value.BAD or value == Value.VERY_BAD:
+                argument.add_premiss_couple_values(criterion,value)
+        return argument
+
+
+    def support_proposal(self, item):
+        """
+        Used when the agent recieves "ASK_WHY" after having proposed an item
+        :param item: str - name of the item which was proposed
+        :return: string - the strongest supportive argument
+        """
+        argument = self.list_supporting_proposal(item)
+        return argument.get_best_support_argument()
 
 if __name__ == '__main__':
     """Testing the Preferences class.

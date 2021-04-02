@@ -15,3 +15,8 @@ class CoupleValue:
         """
         self.__criterion_name = criterion_name
         self.__value = value
+
+    def __str__(self):
+        """Returns Item as a String.
+        """
+        return str(self.__criterion_name) + ": " + str(self.__value)

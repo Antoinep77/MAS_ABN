@@ -32,3 +32,6 @@ class Argument:
         """Add a premiss couple values in the couple values list.
         """
         self.__couple_values_list.append(CoupleValue(criterion_name, value))
+
+    def get_best_support_argument(self):
+        return self.__couple_values_list[0]
