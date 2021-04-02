@@ -44,6 +44,7 @@ class CommunicatingAgent(Agent):
     def send_message(self, message):
         """ Send message through the MessageService object.
         """
+        print(message)
         self.__messages_service.send_message(message)
 
     def get_new_messages(self):

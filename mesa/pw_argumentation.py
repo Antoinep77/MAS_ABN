@@ -23,23 +23,50 @@ class ArgumentAgent(CommunicatingAgent):
         super().__init__(unique_id, model, name)
         self.preference = Preferences()
         self.preference.set_criterion_name_list(criterions)
-        self.items = []
+        self.items = set()
+        self.committed_items = set()
+
+
+    def handle_propose_message(self,m):
+        if self.preference.is_item_among_top_10_percent(m.get_content(),self.items):
+            self.send_message(Message(self.get_name(),m.get_exp(),MessagePerformative.ACCEPT,m.get_content()))
+        else:
+            self.send_message(Message(self.get_name(),m.get_exp(),MessagePerformative.ASK_WHY,m.get_content()))
+
+    def handle_accept_message(self,m):
+        if True:
+            self.send_message(Message(self.get_name(),m.get_exp(),MessagePerformative.COMMIT,m.get_content()))
+            self.committed_items.add(m.get_content())
+        else:
+            self.send_message(Message(self.get_name(),m.get_exp(),MessagePerformative.ARGUE,m.get_content()))
+
+    def handle_commit_message(self,m):
+        if m.get_content() not in self.committed_items:
+            self.send_message(Message(self.get_name(),m.get_exp(),MessagePerformative.COMMIT,m.get_content()))
+            self.committed_items.add(m.get_content())
+
+    def handle_ask_why_message(self,m):
+        pass
+
 
     def step(self):
         super().step()
-        messages = filter(lambda message: message.performative == MessagePerformative.PROPOSE,self.get_new_messages())
+        messages = self.get_new_messages()
+        handlers={
+                MessagePerformative.PROPOSE:self.handle_propose_message,
+                MessagePerformative.ASK_WHY:self.handle_ask_why_message,
+                MessagePerformative.ACCEPT: self.handle_accept_message,
+                MessagePerformative.COMMIT: self.handle_commit_message,
+            }
         for m in messages:
-            if self.preference.is_item_among_top_10_percent(m.get_content(),self.items):
-                self.send_message(self,m.get_exp(),MessagePerformative.ACCEPT,m.get_content())
-            else:
-                self.send_message(self,m.get_exp(),MessagePerformative.ASK_WHY,m.get_content())
+            handlers[m.get_performative()](m)
 
 
     def get_preference(self):
         return self.preference
 
     def generate_random_preferences(self, item):
-        self.items.append(item)
+        self.items.add(item)
         for criterion in self.preference.get_criterion_name_list():
             value = self.model.random.choice(list(Value))
             self.preference.add_criterion_value(CriterionValue(item,criterion,value))
@@ -66,7 +93,7 @@ class ArgumentModel(Model):
         self.schedule.add(agent2)
         self.running = True
 
-        agent1.send_message(Message(agent1,agent2,MessagePerformative.PROPOSE,items[0]))
+        agent1.send_message(Message("agent1","agent2",MessagePerformative.PROPOSE,items[0]))
 
     def step(self):
         self.__messages_service.dispatch_messages()
@@ -76,10 +103,14 @@ class ArgumentModel(Model):
         self.next_id += 1
         return self.next_id
 
+    def run_n_steps(self,n):
+        for _ in range(n):
+            self.step()
+
 
 
 
 if __name__ == "__main__":
     argument_model = ArgumentModel(20)
-
+    argument_model.run_n_steps(50)
   # To be completed
