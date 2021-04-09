@@ -19,7 +19,7 @@ class Argument:
         """Creates a new Argument.
         """
         self.__decision = boolean_decision
-        self.__item = item.get_name()
+        self.__item = item
         self.__comparison_list = []
         self.__couple_values_list = []
 
@@ -33,5 +33,21 @@ class Argument:
         """
         self.__couple_values_list.append(CoupleValue(criterion_name, value))
 
-    def get_best_support_argument(self):
-        return self.__couple_values_list[0]
+
+    def parse(self):
+        if len(self.__comparison_list) == 0:
+            return (self.__item,self.__decision,self.__couple_values_list[0],None)
+        return (self.__item,self.__decision,self.__couple_values_list[0],self.__comparison_list[0])
+
+    def __str__(self):
+        """Returns Item as a String.
+        """
+        if len(self.__comparison_list) == 0:
+            return  ("not " if  not self.__decision else "") + str(self.__item.get_name()) + ": " + str(self.__couple_values_list[0])
+        return ("not " if not self.__decision else "") + str(self.__item.get_name()) + ": " + str(self.__comparison_list[0])+ " and " + str(self.__couple_values_list[0])
+
+    def __eq__(self, other):
+        item, decision, cv_prem, comp_prem = self.parse() 
+        item2, decision2, cv_prem2, comp_prem2 = other.parse()
+        comp_prem_eq = (comp_prem is None and comp_prem2 is None)  or ((comp_prem is not None and comp_prem2 is not None) and comp_prem == comp_prem2)
+        return decision == decision2 and item.get_name() == item2.get_name() and cv_prem == cv_prem2 and comp_prem_eq

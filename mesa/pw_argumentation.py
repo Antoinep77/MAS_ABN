@@ -25,7 +25,7 @@ class ArgumentAgent(CommunicatingAgent):
         self.preference.set_criterion_name_list(criterions)
         self.items = set()
         self.committed_items = set()
-
+        self.arguments_used = []
 
     def handle_propose_message(self,m):
         if self.preference.is_item_among_top_10_percent(m.get_content(),self.items):
@@ -48,11 +48,21 @@ class ArgumentAgent(CommunicatingAgent):
 
     def handle_ask_why_message(self,m):
         argument = self.preference.support_proposal(m.get_content())
-        content = (m.get_content(),argument)
-        self.send_message(Message(self.get_name(),m.get_exp(),MessagePerformative.ARGUE,content))
+        self.arguments_used.append(argument)
+        self.send_message(Message(self.get_name(),m.get_exp(),MessagePerformative.ARGUE,argument))
 
     def handle_argue_message(self,m):
-        pass
+        incoming_argument = m.get_content()
+        arguments = self.preference.get_attacking_arguments( self.items, incoming_argument)
+        arguments = list(filter(lambda arg: arg not in self.arguments_used,arguments))
+        if len(arguments) > 0:
+            argument = self.model.random.choice(arguments)
+            self.arguments_used.append(argument)
+            self.send_message(Message(self.get_name(),m.get_exp(),MessagePerformative.ARGUE,argument ))
+        else:
+            item, _,_,_ = incoming_argument.parse()
+            self.send_message(Message(self.get_name(),m.get_exp(),MessagePerformative.ACCEPT,item))
+
 
     def step(self):
         super().step()
@@ -86,8 +96,9 @@ class ArgumentModel(Model):
         self.next_id = 0
         
         agent1 = ArgumentAgent(self.get_next_id(),self, "agent1",[ CriterionName.ENVIRONMENT_IMPACT, CriterionName.NOISE,
-                                        CriterionName.CONSUMPTION, CriterionName.DURABILITY ])
-        agent2 = ArgumentAgent(self.get_next_id(),self, "agent2",[CriterionName.PRODUCTION_COST,CriterionName.CONSUMPTION, CriterionName.NOISE])
+                                        CriterionName.CONSUMPTION, CriterionName.DURABILITY,CriterionName.PRODUCTION_COST ])
+        agent2 = ArgumentAgent(self.get_next_id(),self, "agent2",[CriterionName.PRODUCTION_COST,CriterionName.CONSUMPTION,
+                                         CriterionName.NOISE, CriterionName.ENVIRONMENT_IMPACT,CriterionName.DURABILITY])
 
         items = [Item("Item{}".format(self.get_next_id()), "Some random item") for _ in range(nb_items)]
 

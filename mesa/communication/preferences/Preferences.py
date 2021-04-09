@@ -54,10 +54,10 @@ class Preferences:
         """Returns if a criterion 1 is preferred to the criterion 2.
         """
         for criterion_name in self.__criterion_name_list:
-            if criterion_name == criterion_name_1:
-                return True
             if criterion_name == criterion_name_2:
                 return False
+            if criterion_name == criterion_name_1:
+                return True
 
     def is_preferred_item(self, item_1, item_2):
         """Returns if the item 1 is preferred to the item 2.
@@ -95,11 +95,13 @@ class Preferences:
         :return: list of all arguments PRO an item (sorted by order of importance based on agent's preferences)
         """
         couple_values =  [ (criterion,self.get_value(item,criterion)) for criterion in self.get_criterion_name_list()]
-        argument = Argument(True,item)
+        arguments = []
         for criterion,value in couple_values:
             if value == Value.VERY_GOOD or value == Value.GOOD:
+                argument = Argument(True,item)
                 argument.add_premiss_couple_values(criterion,value)
-        return argument
+                arguments.append(argument)
+        return arguments
 
     def list_attacking_proposal(self, item):
         """Generate a list of arguments which can be used to attack an item
@@ -107,11 +109,13 @@ class Preferences:
         :return: list of all arguments CON an item (sorted by order of importance based on preferences)
         """
         couple_values =  [ (criterion,self.get_value(item,criterion)) for criterion in self.get_criterion_name_list()]
-        argument = Argument(True,item)
         for criterion,value in couple_values:
+            arguments = []
             if value == Value.BAD or value == Value.VERY_BAD:
+                argument = Argument(False,item)
                 argument.add_premiss_couple_values(criterion,value)
-        return argument
+                arguments.append(argument)
+        return arguments
 
 
     def support_proposal(self, item):
@@ -120,8 +124,65 @@ class Preferences:
         :param item: str - name of the item which was proposed
         :return: string - the strongest supportive argument
         """
-        argument = self.list_supporting_proposal(item)
-        return argument.get_best_support_argument()
+        arguments = self.list_supporting_proposal(item)
+        return arguments[0]
+
+    def attack_cv_premiss(self,all_items,cv_premiss,argued_item,decision):
+        criterion,value = cv_premiss.parse()
+        #item with better value for criterion
+        arguments = []
+        if decision:
+            for item in all_items:
+                if self.get_value(item,criterion).value > value.value:
+                    argument = Argument(True,item)
+                    argument.add_premiss_couple_values(criterion,self.get_value(item,criterion))
+                    arguments.append(argument)
+
+        #item has worst or better (depending on decision) value for the criterion to the agent
+        if (( decision and self.get_value(argued_item,criterion).value < value.value) or (not decision and self.get_value(argued_item,criterion).value> value.value)):
+            argument = Argument(not decision,argued_item)
+            argument.add_premiss_couple_values(criterion,self.get_value(argued_item,criterion))
+            arguments.append(argument)
+        
+        for criterion2 in self.__criterion_name_list:
+            if self.is_preferred_criterion(criterion2,criterion) and (
+              (decision and self.get_value(argued_item,criterion2).value <=  Value.BAD.value)
+              or (not decision and self.get_value(argued_item,criterion2).value >=  Value.GOOD.value )):
+                argument = Argument(not decision,argued_item)
+                argument.add_premiss_couple_values(criterion2,self.get_value(argued_item,criterion2))
+                argument.add_premiss_comparison(criterion2,criterion)
+                arguments.append(argument)
+        
+        return arguments
+
+    def attack_composed_premiss(self,all_items,cv_premiss,crit_compare_premiss,argued_item,decision):
+        criterion,value = cv_premiss.parse()
+        criterion1,criterion2 = crit_compare_premiss.parse()
+        assert criterion == criterion1
+        arguments = []
+        #item with better value for criterion
+        if decision:
+            for item in all_items:
+                if self.get_value(item,criterion).value > value.value:
+                    argument = Argument(True,item)
+                    argument.add_premiss_couple_values(criterion,self.get_value(item,criterion))
+                    arguments.append(argument)
+
+        if self.is_preferred_criterion(criterion2,criterion1):
+            argument = Argument(not decision,argued_item)
+            argument.add_premiss_couple_values(criterion2,self.get_value(argued_item,criterion2))
+            argument.add_premiss_comparison(criterion2,criterion1)
+            arguments.append(argument)
+
+        return arguments
+
+    def get_attacking_arguments(self,all_items,argument):
+        argued_item,decision,couple_value_premiss,criterion_comparison_premiss = argument.parse()
+        if criterion_comparison_premiss is None:
+            return self.attack_cv_premiss(all_items,couple_value_premiss,argued_item,decision)
+        else:
+           return self.attack_composed_premiss(all_items,couple_value_premiss,criterion_comparison_premiss,argued_item,decision)
+
 
 if __name__ == '__main__':
     """Testing the Preferences class.

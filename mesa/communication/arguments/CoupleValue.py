@@ -20,3 +20,10 @@ class CoupleValue:
         """Returns Item as a String.
         """
         return str(self.__criterion_name) + ": " + str(self.__value)
+    
+    def __eq__(self, other):
+        return self.__criterion_name ==  other.__criterion_name and self.__value ==  other.__value
+
+
+    def parse(self):
+        return self.__criterion_name,self.__value
