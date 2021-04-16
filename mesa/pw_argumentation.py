@@ -11,6 +11,7 @@ from communication.preferences.CriterionName import CriterionName
 from communication.preferences.CriterionValue import CriterionValue
 from communication.preferences.Value import Value
 
+import numpy as np
 
 
 
@@ -27,6 +28,11 @@ class ArgumentAgent(CommunicatingAgent):
         self.committed_items = []
         self.rejected_items = set()
         self.arguments_used = []
+        self.victory_count = 0
+        self.propositions = 0
+        self.accepted_propositions = 0
+        self.is_proposed_by_me = False
+        self.vote_to_halt = False
 
     
     def propose_preferred_item(self,exp):
@@ -34,23 +40,27 @@ class ArgumentAgent(CommunicatingAgent):
         if len(selectable_items) > 0:
             preferred_item = self.preference.most_preferred(selectable_items)      
             self.send_message(Message(self.get_name(),exp,MessagePerformative.PROPOSE,preferred_item))
+            self.is_proposed_by_me = True
+            self.propositions +=1
         else:
             self.send_message(Message(self.get_name(),exp,MessagePerformative.TERMINATE,self.committed_items))
+            self.vote_to_halt = True
 
     def handle_propose_message(self,m):
+        self.is_proposed_by_me = False
         if self.preference.is_item_among_top_10_percent(m.get_content(),self.items):
             self.send_message(Message(self.get_name(),m.get_exp(),MessagePerformative.ACCEPT,m.get_content()))
         else:
             self.send_message(Message(self.get_name(),m.get_exp(),MessagePerformative.ASK_WHY,m.get_content()))
 
     def handle_accept_message(self,m):
-        if True:
-            self.send_message(Message(self.get_name(),m.get_exp(),MessagePerformative.COMMIT,m.get_content()))
-            self.committed_items.append(m.get_content())
-        else:
-            self.send_message(Message(self.get_name(),m.get_exp(),MessagePerformative.ARGUE,m.get_content()))
+        self.victory_count += 1
+        self.send_message(Message(self.get_name(),m.get_exp(),MessagePerformative.COMMIT,m.get_content()))
+        self.committed_items.append(m.get_content())
 
     def handle_commit_message(self,m):
+        if self.is_proposed_by_me:
+            self.accepted_propositions += 1
         if m.get_content() not in self.committed_items:
             self.send_message(Message(self.get_name(),m.get_exp(),MessagePerformative.COMMIT,m.get_content()))
             self.committed_items.append(m.get_content())
@@ -86,13 +96,12 @@ class ArgumentAgent(CommunicatingAgent):
                 self.propose_preferred_item(m.get_exp())
 
     def handle_terminate_message(self,m):
+        self.vote_to_halt = True
         if m.get_content()!=self.committed_items:
             raise Exception("Differents commit items")
     
     def handle_dont_know_message(self,m):
         self.propose_preferred_item(m.get_exp())
-
-
 
     def step(self):
         super().step()
@@ -126,25 +135,27 @@ class ArgumentModel(Model):
         self.schedule = RandomActivation(self)
         self.__messages_service = MessageService(self.schedule)
         self.next_id = 0
-        
-        agent1 = ArgumentAgent(self.get_next_id(),self, "agent1",[ CriterionName.ENVIRONMENT_IMPACT, CriterionName.NOISE,
-                                        CriterionName.CONSUMPTION, CriterionName.DURABILITY,CriterionName.PRODUCTION_COST ])
-        agent2 = ArgumentAgent(self.get_next_id(),self, "agent2",[CriterionName.PRODUCTION_COST,CriterionName.CONSUMPTION,
-                                         CriterionName.NOISE, CriterionName.ENVIRONMENT_IMPACT,CriterionName.DURABILITY])
+        self.step_index = 0
+        criterions = [CriterionName.ENVIRONMENT_IMPACT, CriterionName.NOISE, CriterionName.CONSUMPTION, CriterionName.DURABILITY,CriterionName.PRODUCTION_COST ]
+        self.random.shuffle(criterions)
+        self.agent1 = ArgumentAgent(self.get_next_id(),self, "agent1",criterions)
+        self.random.shuffle(criterions)
+        self.agent2 = ArgumentAgent(self.get_next_id(),self, "agent2",criterions)
 
         items = [Item("Item{}".format(self.get_next_id()), "Some random item") for _ in range(nb_items)]
 
         for item in items:
-            agent1.generate_random_preferences(item)
-            agent2.generate_random_preferences(item)
+            self.agent1.generate_random_preferences(item)
+            self.agent2.generate_random_preferences(item)
         
-        self.schedule.add(agent1)
-        self.schedule.add(agent2)
+        self.schedule.add(self.agent1)
+        self.schedule.add(self.agent2)
         self.running = True
 
-        agent1.propose_preferred_item("agent2")
+        self.agent1.propose_preferred_item("agent2")
 
     def step(self):
+        self.step_index += 1
         self.__messages_service.dispatch_messages()
         self.schedule.step()
 
@@ -155,12 +166,29 @@ class ArgumentModel(Model):
     def run_n_steps(self,n):
         for _ in range(n):
             self.step()
+    
+    def run(self):
+        while not self.agent1.vote_to_halt or not self.agent2.vote_to_halt:
+            self.step()
+
+    def show_stats(self):
+        print()
+        print("Number of steps to converge: {0} for {1} items".format(self.step_index,len(self.agent1.items)))
+        print()
+        for agent in [self.agent1,self.agent2]: 
+            print("Stats for: ",agent.get_name())
+            print("Victories: ", agent.victory_count)
+            print("Acceptation rate: ", agent.accepted_propositions/agent.propositions)
+            mean_scores_ratio = np.mean([item.get_score(agent.preference) for item in agent.committed_items])/np.mean([item.get_score(agent.preference) for item in agent.items])
+            print("Committed items mean score ratio: ",mean_scores_ratio)
+            print()
 
 
 
 
 if __name__ == "__main__":
-    argument_model = ArgumentModel(10)
-    argument_model.run_n_steps(100)
+    argument_model = ArgumentModel(100)
+    argument_model.run()
+    argument_model.show_stats()
 
   # To be completed
