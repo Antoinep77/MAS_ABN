@@ -27,6 +27,9 @@ class Message:
         if type(self.__content) is tuple:
             return "From " + str(self.__from_agent) + " to " + str(self.__to_agent) \
                + " (" + str(self.__message_performative) + ") " + " ".join([str(content) for content in self.__content])
+        if type(self.__content) is list:
+            return "From " + str(self.__from_agent) + " to " + str(self.__to_agent) \
+               + " (" + str(self.__message_performative) + ") [ " + ", ".join([str(content) for content in self.__content]) + " ]"
 
         return "From " + str(self.__from_agent) + " to " + str(self.__to_agent) \
                + " (" + str(self.__message_performative) + ") " + str(self.__content)

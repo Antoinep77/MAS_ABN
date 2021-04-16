@@ -24,8 +24,18 @@ class ArgumentAgent(CommunicatingAgent):
         self.preference = Preferences()
         self.preference.set_criterion_name_list(criterions)
         self.items = set()
-        self.committed_items = set()
+        self.committed_items = []
+        self.rejected_items = set()
         self.arguments_used = []
+
+    
+    def propose_preferred_item(self,exp):
+        selectable_items = list(self.items.difference(set(self.committed_items)).difference(self.rejected_items))
+        if len(selectable_items) > 0:
+            preferred_item = self.preference.most_preferred(selectable_items)      
+            self.send_message(Message(self.get_name(),exp,MessagePerformative.PROPOSE,preferred_item))
+        else:
+            self.send_message(Message(self.get_name(),exp,MessagePerformative.TERMINATE,self.committed_items))
 
     def handle_propose_message(self,m):
         if self.preference.is_item_among_top_10_percent(m.get_content(),self.items):
@@ -36,32 +46,52 @@ class ArgumentAgent(CommunicatingAgent):
     def handle_accept_message(self,m):
         if True:
             self.send_message(Message(self.get_name(),m.get_exp(),MessagePerformative.COMMIT,m.get_content()))
-            self.committed_items.add(m.get_content())
+            self.committed_items.append(m.get_content())
         else:
             self.send_message(Message(self.get_name(),m.get_exp(),MessagePerformative.ARGUE,m.get_content()))
 
     def handle_commit_message(self,m):
         if m.get_content() not in self.committed_items:
             self.send_message(Message(self.get_name(),m.get_exp(),MessagePerformative.COMMIT,m.get_content()))
-            self.committed_items.add(m.get_content())
+            self.committed_items.append(m.get_content())
+        else:
+            self.propose_preferred_item(m.get_exp())
 
 
     def handle_ask_why_message(self,m):
         argument = self.preference.support_proposal(m.get_content())
-        self.arguments_used.append(argument)
-        self.send_message(Message(self.get_name(),m.get_exp(),MessagePerformative.ARGUE,argument))
+        if argument:
+            self.arguments_used.append(argument)
+            self.send_message(Message(self.get_name(),m.get_exp(),MessagePerformative.ARGUE,argument))
+        else:
+            self.rejected_items.add(m.get_content())
+            self.send_message(Message(self.get_name(),m.get_exp(),MessagePerformative.DONT_KNOW,m.get_content()))
+
 
     def handle_argue_message(self,m):
         incoming_argument = m.get_content()
-        arguments = self.preference.get_attacking_arguments( self.items, incoming_argument)
+        selectable_items = list(self.items.difference(set(self.committed_items)).difference(self.rejected_items))
+        arguments = self.preference.get_attacking_arguments(selectable_items, incoming_argument)
         arguments = list(filter(lambda arg: arg not in self.arguments_used,arguments))
         if len(arguments) > 0:
             argument = self.model.random.choice(arguments)
             self.arguments_used.append(argument)
             self.send_message(Message(self.get_name(),m.get_exp(),MessagePerformative.ARGUE,argument ))
         else:
-            item, _,_,_ = incoming_argument.parse()
-            self.send_message(Message(self.get_name(),m.get_exp(),MessagePerformative.ACCEPT,item))
+            item, decision,_,_ = incoming_argument.parse()
+            if decision: #no argument against item 
+                self.send_message(Message(self.get_name(),m.get_exp(),MessagePerformative.ACCEPT,item))
+            else: #no argument pro item
+                self.rejected_items.add(item)
+                self.propose_preferred_item(m.get_exp())
+
+    def handle_terminate_message(self,m):
+        if m.get_content()!=self.committed_items:
+            raise Exception("Differents commit items")
+    
+    def handle_dont_know_message(self,m):
+        self.propose_preferred_item(m.get_exp())
+
 
 
     def step(self):
@@ -73,6 +103,8 @@ class ArgumentAgent(CommunicatingAgent):
                 MessagePerformative.ACCEPT: self.handle_accept_message,
                 MessagePerformative.COMMIT: self.handle_commit_message,
                 MessagePerformative.ARGUE: self.handle_argue_message,
+                MessagePerformative.TERMINATE: self.handle_terminate_message,
+                  MessagePerformative.DONT_KNOW: self.handle_dont_know_message,
             }
         for m in messages:
             handlers[m.get_performative()](m)
@@ -110,7 +142,7 @@ class ArgumentModel(Model):
         self.schedule.add(agent2)
         self.running = True
 
-        agent1.send_message(Message("agent1","agent2",MessagePerformative.PROPOSE,items[0]))
+        agent1.propose_preferred_item("agent2")
 
     def step(self):
         self.__messages_service.dispatch_messages()
@@ -128,6 +160,7 @@ class ArgumentModel(Model):
 
 
 if __name__ == "__main__":
-    argument_model = ArgumentModel(20)
-    argument_model.run_n_steps(50)
+    argument_model = ArgumentModel(10)
+    argument_model.run_n_steps(100)
+
   # To be completed

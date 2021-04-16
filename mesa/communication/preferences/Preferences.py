@@ -125,7 +125,9 @@ class Preferences:
         :return: string - the strongest supportive argument
         """
         arguments = self.list_supporting_proposal(item)
-        return arguments[0]
+        if len(arguments) > 0:
+            return arguments[0]
+        return None
 
     def attack_cv_premiss(self,all_items,cv_premiss,argued_item,decision):
         criterion,value = cv_premiss.parse()
